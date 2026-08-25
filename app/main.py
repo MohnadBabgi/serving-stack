@@ -247,4 +247,3 @@ def chat_completions(req: ChatCompletionRequest) -> ChatCompletionResponse:
             total_tokens=prompt_tokens + completion_tokens,
         ),
     )
-    )
