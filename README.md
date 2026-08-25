@@ -32,6 +32,17 @@ Each one is a lab, and each one starts from files that day hands you. Lab
 instructions, decks and quizzes are on the course Drive, one folder per week.
 This repository is your code.
 
+## Docker image sizes (week 2, Tue)
+
+Naive Dockerfile (full `python:3.11` base, no `--no-cache-dir`) vs the slim
+Dockerfile (`python:3.11-slim`, CPU-only torch wheels, `--no-cache-dir`).
+Neither image contains model weights; those live in a mounted volume.
+
+| stage | image size |
+|---|---|
+| naive build (full base, cached pip) | 17.7 GB |
+| slim build | 2.81 GB |
+
 ## Start here
 
 ```bash
