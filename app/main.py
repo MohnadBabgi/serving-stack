@@ -14,14 +14,15 @@ pass pre-seeded the Hugging Face cache, so a cached load is fast.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
 import uuid
 
 import torch
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 
 from schemas import (
@@ -36,8 +37,23 @@ from schemas import (
 )
 
 MODEL_ID = os.environ.get("MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
+API_KEY = os.environ.get("API_KEY", "")
+MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "256"))
+
+if not API_KEY:
+    logging.warning("API_KEY is unset — /v1/* is running UNAUTHENTICATED")
 
 app = FastAPI(title="serving-stack", version="wk2")
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    """Reject /v1/* without a matching bearer key. /health stays open."""
+    if API_KEY and request.url.path.startswith("/v1/"):
+        if request.headers.get("authorization") != f"Bearer {API_KEY}":
+            return JSONResponse(status_code=401, content={"error": "unauthorized"})
+    return await call_next(request)
+
 
 # Load once at import time. CPU only this week.
 print(f"loading {MODEL_ID} on cpu ...")
@@ -97,6 +113,7 @@ def chat_completions(req: ChatCompletionRequest) -> ChatCompletionResponse:
 
     
     max_tokens = req.max_tokens if req.max_tokens is not None else 128
+    max_tokens = min(max_tokens, MAX_TOKENS)
     do_sample = bool(req.temperature is not None and req.temperature > 0)
 
     gen_kwargs = {
